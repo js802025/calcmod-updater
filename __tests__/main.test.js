@@ -1,62 +1,45 @@
-/**
- * Unit tests for the action's main functionality, src/main.js
- *
- * To mock dependencies in ESM, you can create fixtures that export mock
- * functions and objects. For example, the core module is mocked in this test,
- * so that the actual '@actions/core' module is not imported.
- */
 import { jest } from '@jest/globals'
-import * as core from '../__fixtures__/core.js'
-import { wait } from '../__fixtures__/wait.js'
 
-// Mocks should be declared before the module being tested is imported.
-jest.unstable_mockModule('@actions/core', () => core)
-jest.unstable_mockModule('../src/wait.js', () => ({ wait }))
+const mockGet = jest.fn()
+const mockListBranches = jest.fn()
+const mockCreateRef = jest.fn()
+const mockCreateOrUpdateFileContents = jest.fn()
 
-// The module being tested should be imported dynamically. This ensures that the
-// mocks are used in place of any actual dependencies.
-const { run } = await import('../src/main.js')
+jest.unstable_mockModule('@actions/core', () => ({
+  getInput: jest.fn(() => 'fake-token'),
+  setFailed: jest.fn()
+}))
 
-describe('main.js', () => {
-  beforeEach(() => {
-    // Set the action's inputs as return values from core.getInput().
-    core.getInput.mockImplementation(() => '500')
+jest.unstable_mockModule('@actions/github', () => ({
+  context: {
+    repo: {
+      owner: 'me',
+      repo: 'calcmod'
+    }
+  },
+  getOctokit: jest.fn(() => ({
+    rest: {
+      repos: {
+        listBranches: mockListBranches,
+        createOrUpdateFileContents: mockCreateOrUpdateFileContents,
+        listReleases: jest.fn()
+      },
+      git: {
+        createRef: mockCreateRef
+      }
+    }
+  }))
+}))
 
-    // Mock the wait function so that it does not actually wait.
-    wait.mockImplementation(() => Promise.resolve('done!'))
-  })
+jest.unstable_mockModule('@actions/http-client', () => ({
+  HttpClient: jest.fn(() => ({
+    get: mockGet
+  }))
+}))
 
-  afterEach(() => {
-    jest.resetAllMocks()
-  })
+jest.unstable_mockModule('fs', () => ({
+  readFileSync: jest.fn(),
+  writeFileSync: jest.fn()
+}))
 
-  it('Sets the time output', async () => {
-    await run()
-
-    // Verify the time output was set.
-    expect(core.setOutput).toHaveBeenNthCalledWith(
-      1,
-      'time',
-      // Simple regex to match a time string in the format HH:MM:SS.
-      expect.stringMatching(/^\d{2}:\d{2}:\d{2}/)
-    )
-  })
-
-  it('Sets a failed status', async () => {
-    // Clear the getInput mock and return an invalid value.
-    core.getInput.mockClear().mockReturnValueOnce('this is not a number')
-
-    // Clear the wait mock and return a rejected promise.
-    wait
-      .mockClear()
-      .mockRejectedValueOnce(new Error('milliseconds is not a number'))
-
-    await run()
-
-    // Verify that the action was marked as failed.
-    expect(core.setFailed).toHaveBeenNthCalledWith(
-      1,
-      'milliseconds is not a number'
-    )
-  })
-})
+const { check_fabric } = await import('../src/main.js')
