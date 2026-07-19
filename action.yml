@@ -15,8 +15,8 @@ inputs:
     description: GitHub token
     required: true
 
-# Define your outputs here.
-outputs:
+# # Define your outputs here.
+# outputs:
 
 runs:
   using: node24
